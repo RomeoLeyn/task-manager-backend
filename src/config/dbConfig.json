@@ -1,0 +1,10 @@
+{
+    "development": {
+      "username": "postgres",
+      "password": "12345678",
+      "database": "taskDB",
+      "host": "localhost",
+      "dialect": "postgres"
+    }
+  }
+  

@@ -3,20 +3,23 @@ const { Task, AssignedTask, Project, User } = require('../models/models');
 const ApiError = require('../error/apiError');
 const { model } = require('../db/db');
 const { Op } = require('sequelize');
+const TaskDTO = require('../DTOs/taskDTO');
 
-class TaskController {
+class TaskService {
     async create(req, res) {
         try {
-            const { title, description, status, priority, dueDate, projectId, assignedUserId, createdByUserId } = req.body;
+
+            const userId = req.user.id;
+
+            const { title, description, status, priority, dueDate, projectId } = req.body;
 
             const project = await Project.findOne({ where: { id: projectId } });
-            console.log(project);
 
             if (!project) {
                 return res.status(404).json({ message: 'Project not found' });
             }
 
-            const created = await Task.create({ title, description, status, priority, dueDate, projectId, assignedUserId, createdByUserId });
+            const created = await Task.create({ title, description, status, priority, dueDate, projectId, createdByUserId: userId });
             return res.status(201).json(created);
         } catch (error) {
             return res.status(500).json(error);
@@ -35,7 +38,6 @@ class TaskController {
             }
 
         } catch (error) {
-            // ApiError.badRequest(error.message);
             console.log(error);
         }
     }
@@ -66,126 +68,68 @@ class TaskController {
                         include: [
                             {
                                 model: User,
-                                as: 'user',
+                                as: 'createdByUser',
                                 attributes: ['id', 'username', 'email']
                             }
                         ]
                     },
                     {
                         model: User,
-                        as: 'user',
+                        as: 'assignedUser',
                         attributes: ['id', 'username', 'email']
                     }
-                ]
+                ],
+            attributes: ['id', 'title', 'description', 'status', 'priority', 'dueDate']
         });
+
         res.json(tasks);
     }
 
     async assignedTask(req, res) {
-        const { taskId, userId, status } = req.body;
+        const userId = req.user.id;
+        const { taskId, status } = req.body;
         const tasks = await AssignedTask.create({ taskId, userId, status });
-        return res.json(tasks);
-    }
-
-    async getTaskById(req, res) {
-        const { id } = req.params;
-        const task = await Task.findOne({
-            where: { id },
-            include:
-                [
-                    {
-                        model: Project,
-                        as: 'project',
-                        attributes: ['id', 'title', 'description'],
-                        include: [
-                            {
-                                model: User,
-                                as: 'user',
-                                attributes: ['id', 'username', 'email']
-                            }
-                        ]
-                    },
-                    {
-                        model: User,
-                        as: 'user',
-                        attributes: ['id', 'username', 'email']
-                    }
-                ]
-        });
-        return res.status(200).json(task);
-    }
-
-    async getAssignedTasksById(req, res) {
-        const { taskId } = req.params;
-        const tasks = await AssignedTask.findOne({
-            where: { taskId },
-            include:
-                [
-                    {
-                        model: User,
-                        as: 'user',
-                        attributes: ['id', 'username', 'email']
-                    },
-                    {
-                        model: Task,
-                        as: 'task',
-                        attributes: ['id', 'title', 'description'],
-                    }
-                ]
-        });
-        return res.json(tasks);
-    }
-
-    async getAssignedTasks(req, res) {
-        try {
-            const tasks = await AssignedTask.findAll({ where: { status: 'assigned' } });
-            return res.status(200).json(tasks);
-        } catch (error) {
-            return res.status(500).json(error);
-        }
-    }
-
-    async getAssignedTasksByUserId(req, res) { // TODO fix bugs
-        const { userId } = req.params;
-        const tasks = await AssignedTask.findAll({
-            where: { userId },
-            include:
-                [
-                    {
-                        model: User,
-                        as: 'user',
-                        attributes: ['id', 'username', 'email']
-                    },
-                    {
-                        model: Task,
-                        as: 'task',
-                        attributes: ['id', 'title', 'description'],
-                    }
-                ]
-        });
-        // const userInfo = await axios.get(`http://localhost:3000/users/${userId}`); // TODO
         return res.json(tasks);
     }
 
     async getTasksByProjectId(req, res) {
         try {
-            const { projectId } = req.params;
-            const tasks = await Task.findAll(
+            const { id } = req.params;
+            const tasks = await Task.findOne(
                 {
-                    where: { projectId },
-                    include:
-                    {
-                        model: User,
-                        as: 'user',
-                        attributes: ['id', 'username', 'email']
-                    }
+                    where: { id },
+                    include: [
+                        {
+                            model: Project,
+                            as: 'project',
+                            attributes: ['id', 'title', 'description'],
+                            include: [
+                                {
+                                    model: User,
+                                    as: 'createdByUser',
+                                    attributes: ['id', 'username', 'email']
+                                }
+                            ]
+                        },
+                        {
+                            model: User,
+                            as: 'assignedUser',
+                            attributes: ['id', 'username', 'email']
+                        },
+                        {
+                            model: User,
+                            as: 'createdByUser',
+                            attributes: ['id', 'username', 'email']
+                        }
+                    ]
                 }
             );
+
             return res.status(200).json(tasks);
         } catch (error) {
-            return res.status(500).json(error);
+            return res.status(500).json(error.message);
         }
     }
 }
 
-module.exports = new TaskController();
+module.exports = new TaskService();

@@ -1,9 +1,9 @@
 const { User } = require('../models/models');
 const ApiError = require('../error/apiError');
 const bcrypt = require('bcrypt');
+const crypto = require("crypto");
 const jwt = require('jsonwebtoken');
-const { validate } = require('../db/db');
-const CreateUserDTO = require('../DTOs/CreateUserDTO');
+const sendEmail = require('./emailService');
 
 
 const generateJwt = (id, email, status) => {
@@ -14,12 +14,13 @@ const generateJwt = (id, email, status) => {
     );
 }
 
-class UserController {
+class UserService {
     async registation(req, res, next) {
         try {
-            const { username, email, password } = req.body;
+            const { username, firstName, lastName, email, password } = req.body;
+            const emailToken = crypto.randomBytes(64).toString("hex");
 
-            if (!username || !email || !password) {
+            if (!username || !firstName || !lastName || !email || !password) {
                 return next(res.status(400).json({ message: 'Not all fields are filled' }));
             }
 
@@ -30,7 +31,9 @@ class UserController {
             }
 
             const hashPassword = await bcrypt.hash(password, 5);
-            const user = await User.create({ username, email, password: hashPassword });
+            const user = await User.create({ username, firstName, lastName, email, password: hashPassword, emailToken });
+
+            sendEmail(email, 'Registration', emailToken);
 
             const token = generateJwt(user.id, user.email, user.status);
             return res.status(201).json({ token });
@@ -61,6 +64,68 @@ class UserController {
             return res.status(404).json(error);
         }
     }
+
+    async update(req, res) {
+        try {
+            const id = req.user.id;
+            console.log(id);
+            const { username, email, password } = req.body;
+
+            const user = await User.findByPk(id);
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            const hashPassword = await bcrypt.hash(password, 5);
+            await User.update({ username, email, password: hashPassword, updatedAt: new Date() }, { where: { id } });
+            return res.status(200).json({ message: 'User updated' });
+
+        } catch (error) {
+            return res.status(500).json(error);
+        }
+    }
+
+    async findUserByName(req, res) {
+        try {
+            const { username } = req.body;
+            const user = await User.findOne({
+                where: { username: username },
+                attributes: ['id', 'username', 'firstName', 'lastName', 'avatarUrl']
+            });
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            return res.status(200).json(user);
+
+        } catch (error) {
+            return res.status(500).json(error.message);
+        }
+    }
+
+    async verifyEmail(req, res) {
+        const { emailToken } = req.query;
+        console.log(emailToken)
+        if (!emailToken) {
+            return res.status(400).json({ status: "Failed", error: "empty request" });
+        }
+        let user = await User.findOne({ where: { emailToken: emailToken } });
+
+        if (!user) {
+            return res.status(404).json({ status: "Failed", error: "User not found" });
+        }
+
+        await User.update(
+            { status: "active", isVerifiedEmail: true, emailToken: null },
+            { where: { emailToken: emailToken } }
+        );
+
+        return res
+            .status(200)
+            .json({ status: "Active", message: "User verified successfully" });
+    }
 }
 
-module.exports = new UserController();
+module.exports = new UserService();

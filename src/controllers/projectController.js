@@ -9,7 +9,7 @@ router.post('/create', authMiddleware, projectController.create);
 router.post('/add-member/:userId/:projectId', authMiddleware, projectController.addMember);
 
 // GET
-router.get('/all', authMiddleware,  projectController.getProjects);
+router.get('/projects', authMiddleware, projectController.getProjects);
 router.get('/id/:id/', authMiddleware, projectController.getProjectById);
 
 // UPDATE

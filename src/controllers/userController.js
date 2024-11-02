@@ -3,18 +3,14 @@ const router = new Router();
 const userService = require('../services/userService');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// POST
-router.post('/registration', userService.registation);
+router.post('/register', userService.register);
 router.post('/login', userService.login);
+router.post('/important', authMiddleware, userService.addImprotant);
 
-// GET
-router.get('/find', authMiddleware, userService.findUserByName);
-// TODO Delete non-activated users after 12 hours
+router.get('/search', authMiddleware, userService.findUserByName);
 router.get('/verify-email', userService.verifyEmail);
+router.get('/important-projects', authMiddleware, userService.getImprotant);
 
-// UPDATE
 router.put('/update', authMiddleware, userService.update);
-
-// DELETE 
 
 module.exports = router;

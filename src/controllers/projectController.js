@@ -4,17 +4,12 @@ const projectController = require('../services/projectService');
 const authMiddleware = require('../middleware/authMiddleware');
 
 
-// POST
-router.post('/create', authMiddleware, projectController.create);
-router.post('/add-member/:userId/:projectId', authMiddleware, projectController.addMember);
+router.post('/', authMiddleware, projectController.create);
+router.post('/:projectId/members/:userId', authMiddleware, projectController.addMember);
 
-// GET
-router.get('/projects', authMiddleware, projectController.getProjects);
-router.get('/id/:id/', authMiddleware, projectController.getProjectById);
+router.get('/', authMiddleware, projectController.getProjects);
+router.get('/:id/', authMiddleware, projectController.getProjectById);
 
-// UPDATE
-router.put('/update/:id', authMiddleware, projectController.update);
-
-// DELETE 
+router.put('/:id', authMiddleware, projectController.update);
 
 module.exports = router;

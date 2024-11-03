@@ -12,8 +12,8 @@ const User = sequelize.define('user', {
     createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     status: { type: DataTypes.ENUM('active', 'not_active', 'blocked', 'deleted'), allowNull: false, defaultValue: 'not_active' },
-    isVerifiedEmail: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false},
-    emailToken: {type: DataTypes.STRING, allowNull: true}, 
+    isVerifiedEmail: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    emailToken: { type: DataTypes.STRING, allowNull: true },
 }, { timestamps: false });
 
 const Project = sequelize.define('project', {
@@ -25,7 +25,7 @@ const Project = sequelize.define('project', {
     createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     createdByUserId: { type: DataTypes.INTEGER, allowNull: false },
-})
+});
 
 const Task = sequelize.define('task', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -52,7 +52,8 @@ const ProjectMembers = sequelize.define('project_members_info', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     userId: {
         type: DataTypes.INTEGER,
-        allowNull: false, references:
+        allowNull: false,
+        references:
         {
             model: User,
             key: 'id'
@@ -67,6 +68,7 @@ const ProjectMembers = sequelize.define('project_members_info', {
         }
     },
     role: { type: DataTypes.ENUM('owner', 'co_owner', 'member'), allowNull: false, defaultValue: 'member' },
+    addedByUserId: { type: DataTypes.INTEGER, allowNull: false },
     added: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
 }, { timestamps: false });
 
@@ -79,7 +81,28 @@ const Comment = sequelize.define('comments', {
     createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
 }, { timestamps: false });
 
-// TODO create board table for saving background image
+const UserImportantProjects = sequelize.define('user_important_projects', {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    userId: {
+        type: DataTypes.INTEGER,
+        references: {
+            model: User,
+            key: 'id'
+        },
+        allowNull: false
+    },
+    projectId: {
+        type: DataTypes.INTEGER,
+        references: {
+            model: Project,
+            key: 'id'
+        },
+        allowNull: false
+    },
+    added: {type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW},
+    updated: {type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW}
+}, { timestamps: false });
+
 
 User.hasMany(Task, { foreignKey: 'createdByUserId' });
 Task.belongsTo(User, { as: 'createdByUser', foreignKey: 'createdByUserId' });
@@ -105,4 +128,10 @@ AssignedTask.belongsTo(User, { foreignKey: 'userId' });
 Task.hasMany(AssignedTask, { as: 'assignedTasks', foreignKey: 'taskId' });
 AssignedTask.belongsTo(Task, { as: 'task', foreignKey: 'id' });
 
-module.exports = { Task, AssignedTask, User, Comment, Project, ProjectMembers };
+User.hasMany(UserImportantProjects, { foreignKey: 'userId', as: 'importantProjects' });
+UserImportantProjects.belongsTo(User, { foreignKey: 'userId' });
+
+Project.hasMany(UserImportantProjects, { foreignKey: 'projectId' });
+UserImportantProjects.belongsTo(Project, { foreignKey: 'projectId' });
+
+module.exports = { Task, AssignedTask, User, Comment, Project, ProjectMembers, UserImportantProjects };

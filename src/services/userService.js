@@ -1,21 +1,22 @@
-const { User } = require('../models/models');
+const { User, UserImportantProjects, Project } = require('../models/models');
 const ApiError = require('../error/apiError');
 const bcrypt = require('bcrypt');
 const crypto = require("crypto");
 const jwt = require('jsonwebtoken');
 const sendEmail = require('./emailService');
+const { title } = require('process');
 
 
-const generateJwt = (id, email, status) => {
+const generateJwt = (id, username, avatarUrl, email, status) => {
     return jwt.sign(
-        { id, email, status },
+        { id, username, avatarUrl, email, status },
         process.env.JWT_SECRET,
         { expiresIn: '1h' }
     );
 }
 
 class UserService {
-    async registation(req, res, next) {
+    async register(req, res, next) {
         try {
             const { username, firstName, lastName, email, password } = req.body;
             const emailToken = crypto.randomBytes(64).toString("hex");
@@ -35,7 +36,7 @@ class UserService {
 
             sendEmail(email, 'Registration', emailToken);
 
-            const token = generateJwt(user.id, user.email, user.status);
+            const token = generateJwt(user.id, user.username, user.avatarUrl, user.email, user.status);
             return res.status(201).json({ token });
         } catch (error) {
             return res.status(500).json(error.message);
@@ -56,7 +57,7 @@ class UserService {
                 return res.status(400).json({ message: 'Wrong password' });
             }
 
-            const token = generateJwt(user.id, user.email, user.status);
+            const token = generateJwt(user.id, user.username, user.avatarUrl, user.email, user.status);
 
             return res.status(200).json({ token });
 
@@ -105,9 +106,10 @@ class UserService {
         }
     }
 
+
+    // TODO update status to unverfied
     async verifyEmail(req, res) {
         const { emailToken } = req.query;
-        console.log(emailToken)
         if (!emailToken) {
             return res.status(400).json({ status: "Failed", error: "empty request" });
         }
@@ -122,9 +124,58 @@ class UserService {
             { where: { emailToken: emailToken } }
         );
 
-        return res
-            .status(200)
-            .json({ status: "Active", message: "User verified successfully" });
+        return res.status(200).json({ status: "Active", message: "User verified successfully" });
+    }
+
+    async addImprotant(req, res) {
+        try {
+            const userId = req.user.id;
+            const { projectId } = req.body;
+
+            const importantProjects = await UserImportantProjects.findAll({ where: { userId } });
+
+            if (importantProjects.length >= 5) {
+                return res.status(400).json({ message: 'You already added 5 projects' });
+            }
+
+            const sameProject = importantProjects.find(project => project.projectId === projectId);
+
+            if (sameProject) {
+                return res.status(400).json({ message: 'You already added this project' });
+            }
+
+            const importantProject = await UserImportantProjects.create({ projectId, userId });
+            return res.status(200).json(importantProject);
+        } catch (error) {
+            return res.status(500).json(error.message);
+        }
+
+    }
+
+    async getImprotant(req, res) {
+        try {
+            const importantProjects = await UserImportantProjects.findAll({
+                where: { userId: req.user.id },
+                include: [
+                    { model: Project, attributes: ['id', 'title', 'description', 'category'] }
+                ]
+            })
+
+            return res.status(200).json(importantProjects);
+        } catch (error) {
+            return res.status(500).json(error.message);
+        }
+    }
+
+    async deleteImportant(req, res) {
+        const userId = req.user.id;
+        const { projectId } = req.body;
+        try {
+            const deletedImportantProject = await UserImportantProjects.destroy({ where: { userId, projectId } });
+            return res.status(200).json(deletedImportantProject);
+        } catch (error) {
+            return res.status(400).json(error.message);
+        }
     }
 }
 

@@ -1,7 +1,6 @@
 const { Project, User, ProjectMembers } = require("../models/models");
 const ApiError = require("../error/apiError");
-const { Op } = require("sequelize");
-const { model } = require("../db/db");
+
 
 class ProjectService {
     async create(req, res) {
@@ -30,14 +29,6 @@ class ProjectService {
         }
     }
 
-    /**
-     * @function getProjects
-     * @description Gets all projects of the current user
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
-     * @returns {Promise<void>}
-     * @throws {ApiError}
-     */
     async getProjects(req, res) {
         try {
             const id = req.user.id;
@@ -69,8 +60,8 @@ class ProjectService {
     }
 
     async getProjectById(req, res) {
-        const { id } = req.params;
         try {
+            const { id } = req.params;
             const project = await Project.findOne(
                 {
                     where: { id },
@@ -93,10 +84,31 @@ class ProjectService {
     }
 
     async addMember(req, res) {
-        const { userId, projectId } = req.params;
-
         try {
-            const member = await ProjectMembers.create({ userId, projectId });
+
+            const addedByUserId = req.user.id;
+            const { projectId, userId } = req.params;
+
+            const projectMember = await ProjectMembers.findOne({ where: { projectId, userId } });
+
+            if(projectMember) {
+                return res.status(400).json({message: 'User already added to the project'});
+            }
+
+            const user = await User.findOne({ where: { id: userId } });
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            const project = await Project.findOne({ where: { id: projectId } });
+
+            if (!project) {
+                return res.status(404).json({ message: 'Project not found' });
+            }
+
+            const member = await ProjectMembers.create({ projectId, userId, addedByUserId });
+
             return res.status(200).json(member);
         } catch (error) {
             return res.status(500).json(error.message);

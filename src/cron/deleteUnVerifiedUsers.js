@@ -2,7 +2,9 @@ const cron = require('node-cron');
 const User = require('../models/models').User;
 const { Op } = require('sequelize');
 
-cron.schedule('0 0 * * *', async () => {
+cron.schedule('0 * * * *', async () => {
+    console.log("Start delete users cron");
+
     const sixHoursAgo = new Date();
     sixHoursAgo.setHours(sixHoursAgo.getHours() - 6);
 
@@ -17,6 +19,10 @@ cron.schedule('0 0 * * *', async () => {
                 }
             }
         )
+
+        console.log(deletedUsers);
+
+        console.log("delete users cron", deletedUsers);
 
     } catch (error) {
         console.error(error.message);        

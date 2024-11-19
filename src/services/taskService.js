@@ -16,8 +16,7 @@ class TaskService {
                 where: {
                     id: projectId
                 }
-            }
-            );
+            });
 
             if (!project) {
                 return res.status(404).json({ message: 'Project not found' });
@@ -106,7 +105,6 @@ class TaskService {
                     ]
                 }
             );
-
 
             return res.status(200).json(tasks);
         } catch (error) {

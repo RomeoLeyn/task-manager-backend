@@ -1,14 +1,13 @@
 const { Project, User, ProjectMembers } = require("../models/models");
 const ApiError = require("../error/apiError");
 
-
 class ProjectService {
     async create(req, res) {
         try {
             const userId = req.user.id;
             const { title, description, category, color } = req.body;
             const created = await Project.create({ title, description, category, createdByUserId: userId, color });
-            const projectOfThePracticipant = await ProjectMembers.create({ userId, projectId: created.id, role: 'owner' });
+            const projectOfThePracticipant = await ProjectMembers.create({ userId, projectId: created.id, role: 'owner', addedByUserId: userId });
             return res.status(201).json({ created, projectOfThePracticipant });
         } catch (error) {
             return res.status(500).json(error);

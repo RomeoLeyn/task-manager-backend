@@ -7,7 +7,7 @@ router.post('/register', userService.register);
 router.post('/login', userService.login);
 router.post('/important', authMiddleware, userService.addImprotant);
 
-router.get('/search', authMiddleware, userService.findUserByName);
+router.get('/search', authMiddleware, userService.searchUserByName);
 router.get('/verify-email', userService.verifyEmail);
 router.get('/important-projects', authMiddleware, userService.getImprotant);
 

@@ -1,10 +1,8 @@
 const { User, UserImportantProjects, Project } = require('../models/models');
-const ApiError = require('../error/apiError');
 const bcrypt = require('bcrypt');
 const crypto = require("crypto");
 const jwt = require('jsonwebtoken');
-const sendEmail = require('./emailService');
-const { title } = require('process');
+const { emailSend } = require('../events/userEvents');
 
 
 const generateJwt = (id, username, avatarUrl, email, status) => {
@@ -34,7 +32,7 @@ class UserService {
             const hashPassword = await bcrypt.hash(password, 5);
             const user = await User.create({ username, firstName, lastName, email, password: hashPassword, emailToken });
 
-            sendEmail(email, 'Registration', emailToken);
+            emailSend(email, 'Registration', emailToken);
 
             const token = generateJwt(user.id, user.username, user.avatarUrl, user.email, user.status);
             return res.status(201).json({ token });
@@ -80,6 +78,7 @@ class UserService {
 
             const hashPassword = await bcrypt.hash(password, 5);
             await User.update({ username, email, password: hashPassword, updatedAt: new Date() }, { where: { id } });
+
             return res.status(200).json({ message: 'User updated' });
 
         } catch (error) {
@@ -87,7 +86,7 @@ class UserService {
         }
     }
 
-    async findUserByName(req, res) {
+    async searchUserByName(req, res) {
         try {
             const { username } = req.body;
             const user = await User.findOne({
@@ -106,25 +105,27 @@ class UserService {
         }
     }
 
-
-    // TODO update status to unverfied
     async verifyEmail(req, res) {
-        const { emailToken } = req.query;
-        if (!emailToken) {
-            return res.status(400).json({ status: "Failed", error: "empty request" });
+        try {
+            const { emailToken } = req.query;
+            if (!emailToken) {
+                return res.status(400).json({ status: "Failed", error: "empty request" });
+            }
+            let user = await User.findOne({ where: { emailToken: emailToken } });
+
+            if (!user) {
+                return res.status(404).json({ status: "Failed", error: "User not found" });
+            }
+
+            await User.update(
+                { status: "active", isVerifiedEmail: true, emailToken: null },
+                { where: { emailToken: emailToken } }
+            );
+
+            return res.status(200).json({ status: "Active", message: "User verified successfully" });
+        } catch (error) {
+            return res.status(500).json(error.message);
         }
-        let user = await User.findOne({ where: { emailToken: emailToken } });
-
-        if (!user) {
-            return res.status(404).json({ status: "Failed", error: "User not found" });
-        }
-
-        await User.update(
-            { status: "active", isVerifiedEmail: true, emailToken: null },
-            { where: { emailToken: emailToken } }
-        );
-
-        return res.status(200).json({ status: "Active", message: "User verified successfully" });
     }
 
     async addImprotant(req, res) {
@@ -149,7 +150,6 @@ class UserService {
         } catch (error) {
             return res.status(500).json(error.message);
         }
-
     }
 
     async getImprotant(req, res) {
@@ -157,7 +157,10 @@ class UserService {
             const importantProjects = await UserImportantProjects.findAll({
                 where: { userId: req.user.id },
                 include: [
-                    { model: Project, attributes: ['id', 'title', 'description', 'category'] }
+                    {
+                        model: Project, 
+                        attributes: ['id', 'title', 'description', 'category']
+                    }
                 ]
             })
 

@@ -21,6 +21,8 @@ app.use(express.json());
 app.use('/api', router);
 app.use(errorHandler);
 
+require('./cron/deleteUnVerifiedUsers');
+
 const start = async () => {
     try {
         await sequelize.authenticate();

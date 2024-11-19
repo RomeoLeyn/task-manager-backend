@@ -1,16 +1,16 @@
 const Router = require('express');
 const router = new Router();
-const userController = require('../services/userService');
+const userService = require('../services/userService');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// POST
-router.post('/registration', userController.registation);
-router.post('/login', userController.login);
+router.post('/register', userService.register);
+router.post('/login', userService.login);
+router.post('/important', authMiddleware, userService.addImprotant);
 
-// GET
+router.get('/search', authMiddleware, userService.searchUserByName);
+router.get('/verify-email', userService.verifyEmail);
+router.get('/important-projects', authMiddleware, userService.getImprotant);
 
-// UPDATE
-
-// DELETE 
+router.put('/update', authMiddleware, userService.update);
 
 module.exports = router;

@@ -11,6 +11,7 @@ class ProjectDTO {
             id: member.id,
             username: member.username
         }))
+        this.createdAt = project.createdAt
     }
 }
 

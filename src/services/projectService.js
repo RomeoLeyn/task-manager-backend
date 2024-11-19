@@ -1,14 +1,14 @@
-const { Project, User, Task } = require("../models/models");
+const { Project, User, ProjectMembers } = require("../models/models");
 const ApiError = require("../error/apiError");
-const { Op } = require("sequelize");
-const ProjectDTO = require("../DTOs/projectDTO");
 
-class ProjectController {
+class ProjectService {
     async create(req, res) {
         try {
-            const { title, description, createdByUserId } = req.body;
-            const created = await Project.create({ title, description, createdByUserId });
-            return res.status(201).json(created);
+            const userId = req.user.id;
+            const { title, description, category, color } = req.body;
+            const created = await Project.create({ title, description, category, createdByUserId: userId, color });
+            const projectOfThePracticipant = await ProjectMembers.create({ userId, projectId: created.id, role: 'owner', addedByUserId: userId });
+            return res.status(201).json({ created, projectOfThePracticipant });
         } catch (error) {
             return res.status(500).json(error);
         }
@@ -29,18 +29,25 @@ class ProjectController {
     }
 
     async getProjects(req, res) {
-
-        const id = req.user.id;
-
         try {
+            const id = req.user.id;
+
+            const projectsOfTheParticipant = await ProjectMembers.findAll({ where: { userId: id } });
+
             const projects = await Project.findAll(
                 {
                     where: {
-                        members: {
-                            [Op.contains]: [id]
-                        },
+                        id: projectsOfTheParticipant.map(project => project.projectId)
                     },
-                    attributes: ['id', 'title', 'description'],
+                    include: [
+                        {
+                            model: User,
+                            as: 'members',
+                            through: { attributes: ['role'] },
+                            attributes: ['id', 'username', 'email', 'firstName', 'lastName', 'avatarUrl']
+                        }
+                    ],
+                    attributes: ['id', 'title', 'description', 'updatedAt', 'createdAt', 'category']
                 }
             );
 
@@ -52,88 +59,61 @@ class ProjectController {
     }
 
     async getProjectById(req, res) {
-        const { id } = req.params;
         try {
+            const { id } = req.params;
             const project = await Project.findOne(
                 {
                     where: { id },
-                    // include:
-                    //     [
-                    //         {
-                    //             model: User,
-                    //             as: 'user',
-                    //             attributes: ['id', 'username']
-                    //         },
-                    //         {
-                    //             model: Task,
-                    //             as: 'tasks',
-                    //             attributes: ['id', 'title', 'description', 'status', 'priority', 'dueDate', 'createdByUserId', 'assignedUserId'],
-                    //             include: [
-                    //                 {
-                    //                     model: User,
-                    //                     as: 'user',
-                    //                     attributes: ['id', 'username']
-                    //                 }
-                    //             ]
-                    //         }
-                    //     ],
+                    include: [
+                        {
+                            model: User,
+                            as: 'members',
+                            through: { attributes: ['role'] },
+                            attributes: ['id', 'username', 'firstName', 'lastName', 'avatarUrl']
+                        }
+                    ],
+                    attributes: ['id', 'title', 'description', 'updatedAt', 'createdAt', 'category']
                 });
 
-            const createdByUser = await User.findOne({
-                where: {
-                    id: project.createdByUserId
-                }
-            });
+            return res.status(200).json(project);
 
-            const members = await User.findAll({
-                where: {
-                    id: {
-                        [Op.in]: project.members
-                    }
-                }
-            });
-
-            const projectDTO = new ProjectDTO(project, createdByUser, members);
-
-            // return res.status(200).json({ project, members });
-            return res.status(200).json(projectDTO);
-            // return res.status(200).json(project);
         } catch (error) {
             return res.status(500).json(error);
         }
     }
 
     async addMember(req, res) {
-        const { userId, projectId } = req.params;
         try {
 
-            const project = await Project.findByPk(projectId);
+            const addedByUserId = req.user.id;
+            const { projectId, userId } = req.params;
+
+            const projectMember = await ProjectMembers.findOne({ where: { projectId, userId } });
+
+            if(projectMember) {
+                return res.status(400).json({message: 'User already added to the project'});
+            }
+
+            const user = await User.findOne({ where: { id: userId } });
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            const project = await Project.findOne({ where: { id: projectId } });
 
             if (!project) {
                 return res.status(404).json({ message: 'Project not found' });
             }
 
-            if (!Array.isArray(project.members)) {
-                project.members = [];
-            }
+            const member = await ProjectMembers.create({ projectId, userId, addedByUserId });
 
-            const numericUserId = parseInt(userId, 10);
-
-            if (!project.members.includes(numericUserId)) {
-                const updatedMembers = [...project.members, numericUserId];
-                project.set('members', updatedMembers);
-            } else {
-                return res.status(400).json({ message: 'User is already a member of the project' });
-            }
-
-
-            await project.save();
-            return res.status(200).json(project);
-
+            return res.status(200).json(member);
         } catch (error) {
             return res.status(500).json(error.message);
         }
     }
+
 }
 
-module.exports = new ProjectController();
+module.exports = new ProjectService();

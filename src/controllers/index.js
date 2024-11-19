@@ -7,6 +7,6 @@ const userRouter = require('./userController');
 
 router.use('/projects', projectRouter);
 router.use('/tasks', taskRouter);
-router.use('/user', userRouter);
+router.use('/users', userRouter);
 
-module.exports = router;
+module.exports = router;    

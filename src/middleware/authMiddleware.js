@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { verifyToken } = require('../utils/jwt');
 
 module.exports = function (req, res, next) {
     if (req.method === "OPTIONS") {
@@ -9,7 +10,7 @@ module.exports = function (req, res, next) {
         if (!token) {
             return res.status(401).json({ message: "No auth" });
         }
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = verifyToken(token);
         req.user = decoded;
         next();
     } catch (e) {

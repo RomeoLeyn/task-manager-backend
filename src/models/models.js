@@ -5,8 +5,8 @@ const User = sequelize.define('user', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     avatarUrl: { type: DataTypes.STRING, allowNull: true, },
     username: { type: DataTypes.STRING, allowNull: false, unique: true },
-    firstName: { type: DataTypes.STRING, allowNull: false },
-    lastName: { type: DataTypes.STRING, allowNull: false },
+    firstName: { type: DataTypes.STRING, allowNull: true },
+    lastName: { type: DataTypes.STRING, allowNull: true },
     email: { type: DataTypes.STRING, allowNull: false, unique: true },
     password: { type: DataTypes.STRING, allowNull: false },
     createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
@@ -19,7 +19,12 @@ const User = sequelize.define('user', {
 const Project = sequelize.define('project', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     title: { type: DataTypes.STRING, allowNull: false },
-    category: { type: DataTypes.ENUM('DEVELOPMENT', 'DESIGN', 'MARKETING', 'FINANCE', 'SALES'), allowNull: false },
+    category: {
+        type: DataTypes.ENUM('DEVELOPMENT', 'DESIGN', 'MARKETING', 'FINANCE', 'ANALYTICS', 'EDUCATION', 'SALES', 'SOCIAL_MEDIA',
+            'CONTENT_MANAGEMENT', 'INNOVATION', 'CUSTOMER_SUPPORT', 'HEALTH_FITNESS', 'LOGISTICS', 'OCCUPATIONAL_SAFETY', 'SUSTAINABILITY',
+            'PROJECT_MANAGEMENT', 'LEGAL', 'REAL_ESTATE', 'ARTS_CULTURE', 'TRAVEL', 'FASHION', 'ENGINEERING', 'PHOTOGRAPHY',
+            'VIDEO_PRODUCTION', 'RESEARCH_DEVELOPMENT', 'CYBERSECURITY', 'EVENTS', 'CHARITY', 'AUTOMOTIVE', 'FOOD'), allowNull: false
+    },
     color: { type: DataTypes.STRING, allowNull: false },
     description: { type: DataTypes.STRING, allowNull: false },
     createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
@@ -99,8 +104,8 @@ const UserImportantProjects = sequelize.define('user_important_projects', {
         },
         allowNull: false
     },
-    added: {type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW},
-    updated: {type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW}
+    added: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    updated: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
 }, { timestamps: false });
 
 

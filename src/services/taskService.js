@@ -1,116 +1,151 @@
-const axios = require('axios');
-const { Task, AssignedTask, User, Project } = require('../models/models');
-const ApiError = require('../error/apiError');
-const { model } = require('../db/db');
-const { Op } = require('sequelize');
-const TaskDTO = require('../DTOs/taskDTO');
-
 class TaskService {
-    async create(req, res) {
-        try {
-            const userId = req.user.id;
 
-            const { title, description, status, priority, dueDate, projectId } = req.body;
+    constructor(TaskModel, AssignedTaskModel, UserModel, ProjectModel) {
+        this.Task = TaskModel;
+        this.AssignedTask = AssignedTaskModel;
+        this.User = UserModel;
+        this.Project = ProjectModel;
+    };
 
-            const project = await Project.findOne({
-                where: {
-                    id: projectId
-                }
-            });
+    async create(userId, taskData) {
 
-            if (!project) {
-                return res.status(404).json({ message: 'Project not found' });
+        const { title, description, status, priority, projectId } = taskData;
+
+        const project = await this.Project.findOne({
+            where: {
+                id: taskData.projectId
             }
+        });
 
-            const created = await Task.create({ title, description, status, priority, dueDate, projectId, createdByUserId: userId });
-
-            return res.status(201).json(created);
-        } catch (error) {
-            return res.status(500).json(error.message);
+        if (!project) {
+            throw new Error('Prject not found');
         }
-    }
+
+        const created = await this.Task.create({ title, description, status, priority, dueDate: new Date(), projectId, createdByUserId: userId });
+
+        return created;
+    };
 
     async update(req, res) {
-        try {
-            const { id } = req.params;
-            const { title, description, status, priority, dueDate, projectId, assignedUserId, createdByUserId } = req.body;
-            const [updated] = await Task.update({ title, description, status, priority, dueDate, projectId, assignedUserId, createdByUserId }, { where: { id } });
+        const { id } = req.params;
+        const { title, description, status, priority, dueDate, projectId, assignedUserId, createdByUserId } = req.body;
+        const [updated] = await this.Task.update({ title, description, status, priority, dueDate, projectId, assignedUserId, createdByUserId }, { where: { id } });
 
-            if (updated) {
-                const updatedTask = await Task.findOne({ where: { id } });
-                return res.status(200).json(updatedTask);
+        if (updated) {
+            const updatedTask = await this.Task.findOne({ where: { id } });
+            return res.status(200).json(updatedTask);
+        }
+    };
+
+    async deleteTask(id, status) {
+        const deleted = await this.Task.update({ status: status }, { where: { id } });
+        return deleted;
+    };
+
+    async assignedTask(userId, briefTaskData) {
+        const { projectId, taskId, status } = briefTaskData;
+
+        const assignedTask = await this.AssignedTask.findOne({
+            where: {
+                taskId,
+                userId
             }
+        });
 
-        } catch (error) {
-            console.log(error);
-        }
-    }
+        if (assignedTask) {
+            throw new Error('Task already assigned');
+        };
 
-    async deleteTask(req, res) {
-        try {
-            const { id, status } = req.params;
+        const taskExists = await this.Task.findOne({ where: { id: taskId } });
+        if (!taskExists) {
+            throw new Error('Task does not exist');
+        };
 
-            if (status === 'deleted') {
-                const deleted = await Task.update({ status: status }, { where: { id } });
-                return res.status(200).json(deleted);
-            } else {
-                return res.status(400).json({ message: 'Task not deleted' });
+        const userExists = await this.User.findOne({ where: { id: userId } });
+        if (!userExists) {
+            throw new Error('User does not exist');
+        };
+
+        const task = await this.AssignedTask.create({ taskId, userId, status });
+        const updated = await this.Task.update(
+            {
+                assignedUserId: userId
+            },
+            {
+                where: { id: taskId }
             }
-        } catch (error) {
-            ApiError.internal(error.messages);
-        }
-    }
+        );
 
-    async assignedTask(req, res) {
-        try {
-            const userId = req.user.id;
-            const { taskId, status } = req.body;
-            const task = await AssignedTask.create({ taskId, userId, status });
+        return task;
+    };
 
-            return res.status(200).json(task);
-        } catch (error) {
-            return res.status(500).json(error.message);
-        }
-    }
+    async getTasksByProjectId(projectId) {
+        const tasks = await this.Task.findAll(
+            {
+                where: { projectId: projectId },
+                include: [
+                    {
+                        model: this.Project,
+                        as: 'project',
+                        attributes: ['id', 'title', 'description'],
+                        include: [
+                            {
+                                model: this.User,
+                                as: 'createdByUser',
+                                attributes: ['id', 'username', 'email']
+                            }
+                        ]
+                    },
+                    {
+                        model: this.User,
+                        as: 'assignedUser',
+                        attributes: ['id', 'username', 'email']
+                    },
+                    {
+                        model: this.User,
+                        as: 'createdByUser',
+                        attributes: ['id', 'username', 'email', 'avatarUrl']
+                    }
+                ]
+            }
+        );
 
-    async getTasksByProjectId(req, res) {
-        try {
-            const { projectId } = req.params;
-            const tasks = await Task.findAll(
-                {
-                    where: { projectId: projectId },
-                    include: [
-                        {
-                            model: Project,
-                            as: 'project',
-                            attributes: ['id', 'title', 'description'],
-                            include: [
-                                {
-                                    model: User,
-                                    as: 'createdByUser',
-                                    attributes: ['id', 'username', 'email']
-                                }
-                            ]
-                        },
-                        {
-                            model: User,
-                            as: 'assignedUser',
-                            attributes: ['id', 'username', 'email']
-                        },
-                        {
-                            model: User,
-                            as: 'createdByUser',
-                            attributes: ['id', 'username', 'email']
-                        }
-                    ]
-                }
-            );
+        return tasks;
+    };
 
-            return res.status(200).json(tasks);
-        } catch (error) {
-            return res.status(500).json(error.message);
-        }
-    }
+    async getTaskDetails(taskId) {
+        const task = await this.Task.findOne(
+            {
+                where: { id: taskId },
+                include: [
+                    {
+                        model: this.Project,
+                        as: 'project',
+                        attributes: ['id', 'title', 'description'],
+                        include: [
+                            {
+                                model: this.User,
+                                as: 'createdByUser',
+                                attributes: ['id', 'username', 'email']
+                            }
+                        ]
+                    },
+                    {
+                        model: this.User,
+                        as: 'assignedUser',
+                        attributes: ['id', 'username', 'email']
+                    },
+                    {
+                        model: this.User,
+                        as: 'createdByUser',
+                        attributes: ['id', 'username', 'email']
+                    }
+                ]
+            }
+        );
+
+        return task;
+    };
 }
 
-module.exports = new TaskService();
+module.exports = TaskService;
